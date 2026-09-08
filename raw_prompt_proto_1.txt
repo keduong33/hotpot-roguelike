@@ -1,0 +1,42 @@
+I'm thinking of prototyping a game similar to balatro but you are a chef prepping hotpot.
+
+you pick different ingredients, dependin on their synergy, quality, freshness etc and the soup base and preference of customers, you get different points.
+
+you want to re-use the soup base as much as possible whenever u add ingredient, it changes characteristic of the soup like spicier, sweeter, creamier etc. If player changes soup, they suffer drawbacks liek losing all modifiers and get points deduction
+
+The game will eventually be made in godot but to test out the mechanics and balancing of the cards/ingredients I just want to write it in html, js and css (simple stlying) with just buttons to manually do actions. We bnasically want logic that are easy to change, like testing out how points can be calculated, does multipler like balatro even make sense etc
+
+Structure of the UI picture we sorta need (sorta similar to balatro)
+- customer bowl (what we submit)
+- hand/bench (which hold the cards we can play)
+- active (cooking pot)
+- deck (where we draw new ingredient cards)
+
+Here are the systems/things I need
+
+- ingredient card (with editable fields):
+  + name
+  + points it will add
+  + freshness
+  + freshness counter -> after a few turns, it turns into the next freshness
+For freshness, maybe we can for now have fresh, cooked, spoiled. If it's fresh, it's faster to get spoiled (2 turns), cooked is 3 turns. If possible, have a way to config this for each ingredient
+  + synergy for example we have 3 ideas for now (not sure how we can implement this well)
+     - noodle adds non-noodle ingredients point by 1 when submitted
+     - meat increases veggie ingredients point by 1 when submitted
+     - veggie gets extra point per turn being cooked but if it goes past certain points, it loses value
+  + optional multipler effect?
+
+- for manipulating cards
+  + a way to add cards into hand or deck (from all the cards we have created)
+  + a way to add a new card
+  + a way to see all the cards we have created 
+  + save these cards in local storage so we can export and share around or tweak the numbers of the cards
+
+- user preference
+  + depending on user preference, the submitted bowl (soup + ingredient state), the points are different
+
+Turn action:
+- turn counter so freshness can change
+- some different way of calculating points
+  + points x mutiplier
+  + points and synergy only

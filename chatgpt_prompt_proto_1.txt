@@ -1,0 +1,989 @@
+# Hotpot Roguelike Mechanics Prototype
+
+## Context
+
+I want to prototype a game inspired by **Balatro**, but instead of poker, the player is preparing hotpot for customers.
+
+This is a **mechanics prototype**, not the final game.
+
+The eventual game will likely be made in Godot, but for now I want a very simple **HTML + CSS + JavaScript** prototype.
+
+The purpose of this prototype is to experiment with:
+
+* Ingredient interactions
+* Soup evolution
+* Ingredient freshness/cooking
+* Synergies
+* Customer preferences
+* Deck/hand decisions
+* Rerolls
+* Changing/reusing soup
+* Different scoring systems
+* Whether `points × multiplier` is actually fun for this concept
+
+Prioritize **easy experimentation and iteration** over visual polish or complex architecture.
+
+---
+
+# Core Game Concept
+
+The player prepares hotpot for customers.
+
+The player has:
+
+* A deck of ingredient cards
+* A hand of available ingredients
+* A cooking pot
+* A current soup
+* A customer with preferences
+* The ability to add ingredients to the pot
+* The ability to eventually submit the pot to the customer
+
+The important idea is that the player wants to **reuse the same soup for as long as possible**.
+
+Every ingredient added to the pot can modify the soup.
+
+Possible soup properties:
+
+* Spicy
+* Sweet
+* Creamy
+* Rich
+* Umami
+* Salty
+* Sour
+
+For example:
+
+```text
+Chili
+    Spicy +4
+    Aromatic +2
+
+Beef
+    Umami +3
+    Rich +2
+
+Milk
+    Creamy +3
+    Sweet +1
+```
+
+The soup should therefore evolve throughout a run.
+
+Changing/replacing the soup should have drawbacks.
+
+Possible penalties include:
+
+* Losing accumulated soup properties
+* Losing soup modifiers
+* Losing score
+* Losing some progress
+
+However, these are experimental. Do not hardcode the design around one particular penalty.
+
+---
+
+# Prototype Philosophy
+
+Treat this as a **mechanics laboratory**.
+
+I want to quickly test questions such as:
+
+* Is additive scoring more interesting than multipliers?
+* Is `points × multiplier` actually appropriate for hotpot?
+* Should soup properties act as multipliers?
+* Are customer preferences interesting?
+* Is it fun to keep ingredients cooking?
+* Is freshness an interesting strategic resource?
+* Are synergies interesting?
+* Is reusing the same soup worth doing?
+* Is changing the soup an interesting decision?
+* Does the player have enough meaningful decisions each turn?
+
+Therefore:
+
+> Keep the game logic separate from the UI.
+
+> Keep game data separate from game logic.
+
+> Make numbers and rules easy to change.
+
+> Avoid hardcoding individual ingredients, customers, or synergies into the core game loop.
+
+> Avoid premature abstraction.
+
+The simulation should ideally work without the UI.
+
+For example:
+
+```js
+const result = game.submitPot();
+```
+
+should be able to return a structured result containing:
+
+* Final score
+* Score breakdown
+* Triggered synergies
+* Triggered effects
+
+---
+
+# UI
+
+Keep the UI extremely simple.
+
+No need for polished graphics.
+
+Something roughly like:
+
+```text
+--------------------------------------------------
+CUSTOMER
+
+Name: Spicy Lover
+
+Likes:
+Spicy
+Umami
+
+Dislikes:
+Sweet
+--------------------------------------------------
+
+COOKING POT
+
+Soup:
+Spicy: 8
+Sweet: 2
+Creamy: 1
+Rich: 5
+Umami: 9
+
+Ingredients:
+[ Beef ] [ Chili ] [ Mushroom ]
+--------------------------------------------------
+
+HAND
+
+[ Beef ] [ Noodle ] [ Tofu ] [ Chili ] [ Mushroom ]
+
+[ Add to Pot ] [ Discard ]
+--------------------------------------------------
+
+DECK
+
+Cards remaining: 25
+
+[ Draw ]
+[ Reroll ]
+--------------------------------------------------
+
+Turn: 5
+Rerolls: 2
+
+[ End Turn ]
+[ Submit Pot ]
+[ Change Soup ]
+--------------------------------------------------
+
+SCORE / DEBUG
+--------------------------------------------------
+```
+
+The goal is functionality, not presentation.
+
+---
+
+# Ingredient Data
+
+Each ingredient should have editable data.
+
+At minimum:
+
+```text
+name
+basePoints
+tags
+freshDuration
+cookedDuration
+effects
+```
+
+Potential future properties:
+
+```text
+rarity
+cost
+quality
+```
+
+Do not add them unless they are useful for the current prototype.
+
+---
+
+# Ingredient Tags
+
+Ingredients should have simple tags.
+
+Examples:
+
+```text
+Beef:
+    meat
+    beef
+    premium
+
+Chili:
+    vegetable
+    spicy
+
+Tofu:
+    vegetarian
+    soy
+    protein
+
+Mushroom:
+    vegetable
+    mushroom
+    umami
+
+Noodle:
+    noodle
+```
+
+Tags are simply labels that other systems can query.
+
+For example:
+
+```js
+ingredient.hasTag("meat")
+```
+
+Do not create an elaborate Tag class/system unless there is a real need.
+
+---
+
+# Freshness / Cooking
+
+Initially use three states:
+
+```text
+Fresh → Cooked → Spoiled
+```
+
+Freshness progresses based on turns.
+
+For example:
+
+```text
+Fresh:
+2 turns
+
+Cooked:
+3 turns
+
+Spoiled:
+permanent
+```
+
+However, freshness timing should be configurable **per ingredient**.
+
+For example:
+
+```text
+Beef:
+freshDuration = 2
+cookedDuration = 3
+
+Tofu:
+freshDuration = 3
+cookedDuration = 2
+```
+
+The exact values are experimental.
+
+Also make the effect of freshness configurable.
+
+For example:
+
+```text
+Fresh:
++3 points
+
+Cooked:
++5 points
+
+Spoiled:
+-3 points
+```
+
+Do not assume these values are final.
+
+The prototype should make it easy to experiment with:
+
+* Freshness durations
+* Freshness point modifiers
+* Spoiled behavior
+
+---
+
+# Soup State
+
+The cooking pot should contain an explicit soup state.
+
+For example:
+
+```js
+{
+    base: "spicy_mala",
+    properties: {
+        spicy: 8,
+        sweet: 2,
+        creamy: 1,
+        rich: 5,
+        umami: 9,
+        salty: 4
+    }
+}
+```
+
+Ingredients modify these properties.
+
+Soup properties should be data-driven where practical.
+
+I should be able to add/remove/change soup properties without rewriting the entire game.
+
+---
+
+# Effects
+
+Use a reusable concept for effects rather than hardcoding ingredient-specific behavior.
+
+Conceptually:
+
+```text
+Effect = what happens
+Condition / Synergy / Trigger = when it happens
+```
+
+Possible effects:
+
+```text
+ModifySoupEffect
+ModifyScoreEffect
+ModifyMultiplierEffect
+ModifyMoneyEffect
+```
+
+An ingredient could contain effects such as:
+
+```text
+Beef
+
+Effects:
+    ModifySoup(umami, +3)
+    ModifySoup(rich, +2)
+```
+
+Do not implement every possible effect type immediately.
+
+Start with only what the prototype actually needs.
+
+---
+
+# Synergies
+
+I want to experiment with Balatro-like combinations.
+
+Initial synergy ideas:
+
+## Noodle
+
+When submitted:
+
+> Noodle increases the points of non-noodle ingredients by 1.
+
+Conceptually:
+
+```text
+ON SUBMIT
+
+IF noodle exists
+THEN non-noodle ingredient points +1
+```
+
+---
+
+## Meat
+
+When submitted:
+
+> Meat increases vegetable ingredient points by 1.
+
+Conceptually:
+
+```text
+ON SUBMIT
+
+IF meat exists
+THEN vegetable ingredient points +1
+```
+
+---
+
+## Vegetable
+
+While cooking:
+
+> Vegetable gains extra points per turn, but after a threshold it starts losing value.
+
+Conceptually:
+
+```text
+WHILE COOKING
+
++1 point per turn
+
+AFTER threshold:
+
+value begins decreasing
+```
+
+These are experiments, not final mechanics.
+
+New synergies should be addable without modifying the main game loop.
+
+---
+
+# Customers
+
+Customers should be data-driven.
+
+Example:
+
+```text
+Customer:
+
+Likes:
+    spicy
+    umami
+
+Dislikes:
+    sweet
+
+Preferences:
+    spicy >= 7
+    umami >= 5
+```
+
+Another customer could instead prefer:
+
+```text
+creamy
+sweet
+rich
+```
+
+Customer preferences should influence the submitted bowl's score.
+
+Do not hardcode individual customers into the scoring system.
+
+---
+
+# Deck / Hand
+
+Implement basic card manipulation:
+
+* Create ingredient cards
+* Add ingredients to deck
+* Draw cards
+* Add cards directly to hand
+* Move cards from hand to pot
+* Discard cards
+* Reroll available options
+* View all created ingredients
+
+The exact deckbuilding rules are not important yet.
+
+The goal is simply to have enough of a loop to test the cooking and scoring mechanics.
+
+---
+
+# Ingredient Editor
+
+Create a simple interface for creating/editing ingredients.
+
+At minimum:
+
+```text
+Name
+Base Points
+Tags
+Fresh Duration
+Cooked Duration
+Effects
+```
+
+I should be able to:
+
+* Create an ingredient
+* Edit an ingredient
+* Delete an ingredient
+* View all created ingredients
+* Add ingredients to the deck/hand
+
+---
+
+# Persistence
+
+Use `localStorage` for prototype data.
+
+I want:
+
+```text
+Save
+Load
+Export JSON
+Import JSON
+```
+
+Exported JSON should contain the relevant configuration, such as:
+
+```text
+ingredients
+customers
+synergies
+scoring configuration
+```
+
+Keep the JSON human-readable so I can manually tweak values.
+
+This is important because I want to experiment with numbers outside the UI as well.
+
+---
+
+# Scoring System
+
+## VERY IMPORTANT
+
+The scoring system is **not decided yet**.
+
+Do not build the entire prototype around one scoring formula.
+
+I specifically want to compare different scoring models to determine which one produces the most interesting gameplay.
+
+The scoring system should therefore be **replaceable/pluggable**.
+
+Initially implement at least these models.
+
+---
+
+## Model A — Additive
+
+```text
+Ingredient points
++ synergy bonuses
++ customer bonuses
++ soup bonuses
+
+= Final Score
+```
+
+---
+
+## Model B — Points × Multiplier
+
+```text
+Base ingredient points
++ synergy points
+
+= Points
+
+Points × Multiplier
+
+= Final Score
+```
+
+---
+
+## Model C — Soup as Multiplier
+
+```text
+Ingredient/synergy points
+× soup-based multiplier
+
+= Final Score
+```
+
+For example, soup properties could contribute to the multiplier.
+
+---
+
+## Model D — Customer Weighted
+
+Customer preferences directly modify the value of soup properties or ingredients.
+
+For example:
+
+```text
+Spicy × 2
+Umami × 3
+Creamy × 0.5
+```
+
+---
+
+## Model E — Thresholds
+
+Soup properties provide bonuses when reaching thresholds.
+
+Example:
+
+```text
+Spicy >= 5
+    +10
+
+Spicy >= 8
+    +25
+
+Spicy >= 10
+    +50
+```
+
+These formulas are examples only.
+
+Make them easy to modify.
+
+---
+
+# Scoring Comparison Mode
+
+This is one of the most important features of the prototype.
+
+The same submitted pot should be able to be evaluated by **multiple scoring models**.
+
+For example:
+
+```text
+CURRENT POT
+
+Beef
+Chili
+Mushroom
+Tofu
+
+Soup:
+
+Spicy: 8
+Umami: 9
+Rich: 4
+
+Customer:
+
+Likes Spicy
+Likes Umami
+
+--------------------------------
+
+SCORING COMPARISON
+
+Additive:
+42
+
+Points × Multiplier:
+96
+
+Soup Multiplier:
+84
+
+Customer Weighted:
+71
+
+Thresholds:
+110
+```
+
+Ideally there should be a button such as:
+
+```text
+[ Compare All Scoring Models ]
+```
+
+This allows me to test the exact same game state against different formulas.
+
+---
+
+# Score Breakdown
+
+Every scoring model should return structured scoring information.
+
+Conceptually:
+
+```js
+{
+    finalScore: 96,
+
+    breakdown: [
+        {
+            label: "Ingredient Points",
+            value: 20
+        },
+        {
+            label: "Synergy",
+            value: 8
+        },
+        {
+            label: "Soup Bonus",
+            value: 12
+        },
+        {
+            label: "Multiplier",
+            value: 2
+        }
+    ],
+
+    triggeredEffects: [
+        "Noodle synergy",
+        "Meat + vegetable synergy"
+    ]
+}
+```
+
+The UI should display the breakdown.
+
+I want to understand **why** a scoring model produced a particular result.
+
+---
+
+# Debug Panel
+
+Because this is a balancing prototype, include a debug section showing:
+
+```text
+Current Turn
+
+Soup Properties
+
+Ingredients in Pot
+
+Freshness State
+
+Freshness Counters
+
+Triggered Synergies
+
+Triggered Effects
+
+Score Breakdown
+
+Final Score
+```
+
+This is more important than visual polish.
+
+---
+
+# Turn System
+
+Implement a basic turn counter.
+
+Ending a turn should:
+
+1. Increment the turn.
+2. Update ingredient freshness/cooking states.
+3. Trigger relevant end-of-turn effects.
+4. Update the UI.
+
+The turn system should not depend on the UI.
+
+---
+
+# Submit Pot
+
+Submitting the pot should roughly do:
+
+```text
+1. Create submission snapshot
+2. Evaluate ingredient states
+3. Evaluate synergies
+4. Evaluate customer preferences
+5. Calculate score
+6. Return ScoreResult
+7. Display result
+```
+
+The scoring calculation should not directly manipulate the UI.
+
+---
+
+# Change Soup
+
+Add a basic action for replacing/changing the soup.
+
+For now, make the penalties configurable.
+
+Possible behavior:
+
+```text
+Change soup
+
+→ reset soup properties
+→ remove soup modifiers
+→ apply score penalty
+```
+
+Do not assume this is the final design.
+
+The important thing is that I can easily change the rules later.
+
+---
+
+# Suggested Architecture
+
+Please evaluate whether this architecture is appropriate rather than blindly implementing it.
+
+Conceptually:
+
+```text
+DATA / MODELS
+
+Ingredient
+Soup
+Customer
+Synergy
+Effect
+ScoreResult
+
+
+SYSTEMS
+
+SoupSystem
+FreshnessSystem
+SynergySystem
+CustomerSystem
+DraftSystem
+ScoringSystem
+
+
+GAME STATE
+
+GameState
+
+
+UI
+
+CustomerUI
+PotUI
+HandUI
+DeckUI
+EditorUI
+DebugUI
+```
+
+The important separation is:
+
+```text
+Data describes things.
+
+Systems perform operations.
+
+GameState stores the current simulation state.
+
+UI displays state and sends commands.
+```
+
+For example:
+
+```text
+UI Button
+    ↓
+game.addIngredient()
+    ↓
+SoupSystem
+    ↓
+Effects
+    ↓
+Synergy evaluation
+    ↓
+GameState updated
+    ↓
+UI renders state
+```
+
+The UI should not contain gameplay rules.
+
+---
+
+# Avoid Overengineering
+
+Do NOT automatically create a class/system for every noun.
+
+For example:
+
+* Tags can simply be strings.
+* An Ingredient does not necessarily need an IngredientSystem.
+* Ingredient instances may not be necessary initially.
+* A TriggerSystem should only exist if the number of event-driven interactions actually justifies it.
+* Do not build a generic event architecture just because it might be useful later.
+* Do not build networking.
+* Do not build a backend.
+* Do not build authentication.
+* Do not build polished animations.
+* Do not build a complex card rendering system.
+
+Prefer simple data structures and functions where appropriate.
+
+The prototype exists to discover the game design.
+
+---
+
+# Plan Mode Task
+
+Before implementing code, produce a detailed implementation plan.
+
+Your plan should cover:
+
+1. Recommended architecture.
+2. Core `GameState`.
+3. Ingredient data structure.
+4. Soup data structure.
+5. Customer data structure.
+6. Effect representation.
+7. Synergy representation.
+8. Freshness implementation.
+9. Turn flow.
+10. Deck/hand flow.
+11. Submit-pot flow.
+12. Scoring architecture.
+13. How scoring models can be swapped.
+14. How scoring comparison mode works.
+15. ScoreResult structure.
+16. Save/load/localStorage structure.
+17. JSON export/import structure.
+18. UI structure.
+19. File/folder structure.
+20. Recommended implementation order.
+
+For each architectural decision, explain **why** it is useful for this prototype.
+
+If you think any part of my proposed architecture is unnecessary or over-engineered, say so and recommend a simpler alternative.
+
+Do not start implementing until the plan is complete.
+
+The priority is:
+
+```text
+Easy to experiment
+        ↓
+Easy to balance
+        ↓
+Easy to understand
+        ↓
+Easy to replace systems
+        ↓
+Visual polish
+```
+
+This prototype should help determine whether the underlying hotpot mechanics are actually fun before I invest in a full game.

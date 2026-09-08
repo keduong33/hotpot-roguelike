@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hotpot Roguelike — Mechanics Lab</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Hotpot Roguelike</h1>
+      <p class="sub">Mechanics laboratory — open this file in a browser. Console: <code>Hotpot.game.submitPot()</code></p>
+    </div>
+    <dl class="hud">
+      <div><dt>Turn</dt><dd id="hud-turn">1</dd></div>
+      <div><dt>Rerolls</dt><dd id="hud-rerolls">3</dd></div>
+      <div><dt>Run score</dt><dd id="hud-score">0</dd></div>
+    </dl>
+  </header>
+
+  <main id="app">
+    <section>
+      <h2>Customer</h2>
+      <label class="inline">Serve
+        <select id="customer-select"></select>
+      </label>
+      <div id="customer-body"></div>
+    </section>
+
+    <section>
+      <h2>Cooking pot</h2>
+      <p>Soup: <strong id="soup-name">—</strong></p>
+      <div id="soup-stats" class="stats"></div>
+      <div id="pot-cards" class="cards"></div>
+      <div class="row">
+        <select id="soup-select"></select>
+        <button type="button" data-action="change-soup">Change soup</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Hand</h2>
+      <div id="hand-cards" class="cards"></div>
+    </section>
+
+    <section>
+      <h2>Deck</h2>
+      <p>Remaining: <strong id="deck-count">0</strong> · Discard: <strong id="discard-count">0</strong></p>
+      <div id="deck-preview" class="chips"></div>
+      <div class="row">
+        <button type="button" data-action="draw">Draw</button>
+        <button type="button" data-action="reroll">Reroll</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Actions</h2>
+      <div class="row">
+        <button type="button" data-action="end-turn">End turn</button>
+        <button type="button" data-action="submit">Submit pot</button>
+        <button type="button" data-action="new-run">New run</button>
+      </div>
+      <label class="inline">Active scoring model
+        <select id="model-select"></select>
+      </label>
+      <p class="hint">End turn cooks the pot (freshness). Submit does not. Changing soup resets properties and applies a score penalty.</p>
+    </section>
+
+    <section>
+      <h2>Score</h2>
+      <div id="score-body"></div>
+      <button type="button" data-action="compare-all">Compare All Scoring Models</button>
+      <div id="compare-body"></div>
+    </section>
+
+    <section class="wide">
+      <h2>Debug</h2>
+      <div id="debug-body"></div>
+    </section>
+
+    <section class="wide">
+      <h2>Ingredient editor</h2>
+      <p id="editor-status" class="hint"></p>
+      <div class="editor-grid">
+        <input id="ing-id" type="hidden">
+        <label>Name <input id="ing-name" type="text"></label>
+        <label>Base points <input id="ing-points" type="number" value="3"></label>
+        <label>Tags <input id="ing-tags" type="text" placeholder="meat, vegetable"></label>
+        <label>Fresh duration <input id="ing-fresh" type="number" value="2"></label>
+        <label>Cooked duration <input id="ing-cooked" type="number" value="3"></label>
+      </div>
+      <h3>Effects</h3>
+      <div id="effect-rows"></div>
+      <div class="row">
+        <button type="button" data-action="add-effect">Add effect</button>
+        <button type="button" data-action="save-ing">Save ingredient</button>
+        <button type="button" data-action="clear-ing">New ingredient</button>
+      </div>
+      <h3>Catalog</h3>
+      <div id="catalog-list"></div>
+    </section>
+
+    <section class="wide">
+      <h2>Persistence</h2>
+      <div class="row">
+        <button type="button" data-action="save">Save</button>
+        <button type="button" data-action="load">Load</button>
+        <button type="button" data-action="export">Export JSON</button>
+        <label class="file">Import JSON <input id="import-file" type="file" accept="application/json,.json"></label>
+        <button type="button" data-action="reset-data">Reset to defaults</button>
+      </div>
+      <p id="persist-status" class="hint">localStorage keys: hotpot-proto-config, hotpot-proto-run</p>
+    </section>
+  </main>
+
+  <script src="js/namespace.js"></script>
+  <script src="js/default-config.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/freshness.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/synergies.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/persist.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
