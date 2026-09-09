@@ -41,6 +41,7 @@
       discard: [],
       customerId: table.startingCustomerId || "spicy_lover",
       lastSubmission: null,
+      serveIds: [],
       log: [],
       nextInstanceId: 1
     };

@@ -85,12 +85,13 @@
     };
   };
 
-  Hotpot.makeSnapshot = function (state) {
+  Hotpot.makeSnapshot = function (state, potList) {
+    var pot = arguments.length > 1 ? potList : state.pot;
     return {
       turn: state.turn,
       customerId: state.customerId,
       soup: Hotpot.clone(state.soup),
-      pot: Hotpot.clone(state.pot),
+      pot: Hotpot.clone(pot || []),
       triggeredSynergies: [],
       triggeredEffects: []
     };

@@ -41,6 +41,7 @@
       if (!data || typeof data.turn !== "number") return null;
       Hotpot.state = data;
       if (!Hotpot.state.nextInstanceId) Hotpot.state.nextInstanceId = 1;
+      if (!Hotpot.state.serveIds) Hotpot.state.serveIds = [];
       return Hotpot.state;
     },
 
@@ -76,6 +77,7 @@
       if (data.config) Hotpot.config = data.config;
       else if (data.ingredients) Hotpot.config = data;
       if (data.state) Hotpot.state = data.state;
+      if (Hotpot.state && !Hotpot.state.serveIds) Hotpot.state.serveIds = [];
       if (!Hotpot.config) Hotpot.resetConfig();
       if (!Hotpot.state) Hotpot.game.newRun();
       return { config: Hotpot.config, state: Hotpot.state };

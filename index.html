@@ -36,7 +36,7 @@
 
     <section>
       <h2>Cooking pot</h2>
-      <p>Soup: <strong id="soup-name">—</strong> · <span id="pot-count">0 / 5 in pot</span></p>
+      <p>Soup: <strong id="soup-name">—</strong> · <span id="pot-count">Serve 0 / —</span> · <span id="serve-instruction">Pick max —</span></p>
       <div id="soup-stats" class="stats"></div>
       <div id="pot-cards" class="cards"></div>
       <div class="row">
@@ -65,7 +65,7 @@
       <h2>Actions</h2>
       <div class="row">
         <button type="button" data-action="end-turn">End turn</button>
-        <button type="button" data-action="submit">Submit pot</button>
+        <button type="button" data-action="submit">Submit pot (ends turn)</button>
         <button type="button" data-action="new-run">New run</button>
       </div>
       <p id="submit-status" class="hint"></p>
@@ -78,7 +78,7 @@
       <label class="inline admin-only">Active scoring model
         <select id="model-select"></select>
       </label>
-      <p class="hint">End turn cooks the pot (freshness). Submit scores the pot for this customer (at most the max ingredients). Changing soup resets properties and applies a score penalty.</p>
+      <p class="hint">End turn cooks everything in the pot (freshness) without serving. Submit serves the cards you selected (up to the max) with the current soup, then ends the turn. Unselected cards stay cooking. Changing soup resets properties and applies a score penalty.</p>
     </section>
 
     <section>

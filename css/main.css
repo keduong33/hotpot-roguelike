@@ -125,7 +125,8 @@ button:hover { background: #5c3c2e; }
   padding: 0.45rem;
   background: #1f1713;
 }
-.card header { font-weight: bold; }
+.card.serve-on { background: #2a2218; box-shadow: inset 0 0 0 1px var(--accent); }
+.card .serve-toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
 .card-actions { display: flex; gap: 0.25rem; margin-top: 0.35rem; }
 .card-actions button { font-size: 0.8rem; }
 

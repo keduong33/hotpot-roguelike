@@ -46,10 +46,16 @@
     return html;
   }
 
+  function isServeSelected(instanceId) {
+    var ids = (Hotpot.state && Hotpot.state.serveIds) || [];
+    return ids.indexOf(instanceId) !== -1;
+  }
+
   function cardHtml(inst, zone) {
     var def = Hotpot.getIngredientDef(inst.defId, Hotpot.config);
     var parts = partsOf(inst);
     var actions = "";
+    var selected = false;
     var synInfo = Hotpot.synergiesForDef(inst.defId, Hotpot.config) || { synergies: [], drawbacks: [] };
     var tags = tagsOf(inst);
     var soupLines = [];
@@ -75,8 +81,14 @@
         "<button type=\"button\" data-action=\"add-to-pot\" data-id=\"" + esc(inst.instanceId) + "\">Add to pot</button>" +
         "<button type=\"button\" data-action=\"discard\" data-id=\"" + esc(inst.instanceId) + "\">Discard</button>" +
         "</div>";
+    } else if (zone === "pot") {
+      selected = isServeSelected(inst.instanceId);
+      actions = "<div class=\"card-actions\">" +
+        "<button type=\"button\" class=\"serve-toggle\" data-action=\"toggle-serve\" data-id=\"" + esc(inst.instanceId) + "\" aria-pressed=\"" + (selected ? "true" : "false") + "\">" +
+        (selected ? "Selected" : "Select") + "</button>" +
+        "</div>";
     }
-    return "<article class=\"card freshness-" + esc(inst.freshness) + "\">" +
+    return "<article class=\"card freshness-" + esc(inst.freshness) + (selected ? " serve-on" : "") + "\">" +
       "<header>" + esc(defName(inst)) + "</header>" +
       "<p class=\"pts\">" + parts.total + " pts <small class=\"admin-only\">(base " + parts.base + " · " + esc(inst.freshness) + " " + parts.freshness + " · mods " + parts.pointMods + ")</small></p>" +
       "<p class=\"cook-eta\">" + esc(Hotpot.freshnessCountdown(inst, Hotpot.config)) + "</p>" +
@@ -118,9 +130,12 @@
   function renderPot() {
     var soup = Hotpot.state.soup;
     var base = Hotpot.getSoupBase(soup.baseId, Hotpot.config);
+    var max = Hotpot.maxSubmitIngredients(Hotpot.config);
+    var n = (Hotpot.state.serveIds || []).length;
     el("soup-name").textContent = base ? base.name : soup.baseId;
     el("soup-stats").innerHTML = soupRows(soup.properties);
-    el("pot-count").textContent = Hotpot.state.pot.length + " / " + Hotpot.maxSubmitIngredients(Hotpot.config) + " in pot";
+    el("pot-count").textContent = "Serve " + n + " / " + max;
+    if (el("serve-instruction")) el("serve-instruction").textContent = "Pick max " + max;
     el("pot-cards").innerHTML = Hotpot.state.pot.length
       ? Hotpot.state.pot.map(function (inst) { return cardHtml(inst, "pot"); }).join("")
       : "<p class=\"empty\">Pot is empty.</p>";
@@ -185,7 +200,7 @@
       el("compare-body").innerHTML = "<p class=\"empty\">No comparison yet.</p>";
       return;
     }
-    html = isPreview ? "<p class=\"hint\">Preview of current pot (not submitted).</p>" : "<p class=\"hint\">Same snapshot, every model.</p>";
+    html = isPreview ? "<p class=\"hint\">Preview of the selected serve (not submitted).</p>" : "<p class=\"hint\">Same snapshot, every model.</p>";
     html += "<div class=\"compare-grid\">";
     for (id in Hotpot.SCORING_MODELS) {
       if (!Object.prototype.hasOwnProperty.call(results, id)) continue;
@@ -849,6 +864,12 @@
         }
         afterCommand();
         break;
+      case "toggle-serve":
+        results = Hotpot.game.toggleServe(id);
+        if (results && results.error) setSubmitStatus(results.error);
+        else setSubmitStatus("");
+        afterCommand();
+        break;
       case "change-soup":
         Hotpot.game.changeSoup(el("soup-select").value);
         afterCommand();
@@ -1006,6 +1027,7 @@
       var n = Number(el("max-submit").value);
       if (!Hotpot.config.table) Hotpot.config.table = {};
       Hotpot.config.table.maxSubmitIngredients = n >= 1 ? n : 5;
+      Hotpot.game.capServeSelection();
       afterCommand();
     });
     el("max-hand").addEventListener("change", function () {

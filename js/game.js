@@ -83,6 +83,47 @@
     gameState.customerId = list[0].id;
   }
 
+  function pruneServeIds(gameState) {
+    var ids = gameState.serveIds || [];
+    var inPot = {};
+    var next = [];
+    var i;
+    for (i = 0; i < gameState.pot.length; i++) inPot[gameState.pot[i].instanceId] = true;
+    for (i = 0; i < ids.length; i++) {
+      if (inPot[ids[i]]) next.push(ids[i]);
+    }
+    gameState.serveIds = next;
+    return next;
+  }
+
+  function capServeIds(gameState, config) {
+    var max = Hotpot.maxSubmitIngredients(config);
+    pruneServeIds(gameState);
+    if (gameState.serveIds.length > max) gameState.serveIds = gameState.serveIds.slice(0, max);
+    return gameState.serveIds;
+  }
+
+  function selectedPotCards(gameState) {
+    var ids = pruneServeIds(gameState);
+    var want = {};
+    var out = [];
+    var i;
+    for (i = 0; i < ids.length; i++) want[ids[i]] = true;
+    for (i = 0; i < gameState.pot.length; i++) {
+      if (want[gameState.pot[i].instanceId]) out.push(gameState.pot[i]);
+    }
+    return out;
+  }
+
+  function runEndTurn(gameState, config) {
+    gameState.turn += 1;
+    Hotpot.tickPotFreshness(gameState, config);
+    Hotpot.evaluateSynergies("onEndTurn", { state: gameState, config: config });
+    fillHand(gameState, config);
+    Hotpot.log(gameState, "Turn ended. Hand " + gameState.hand.length);
+    return gameState;
+  }
+
   Hotpot.game = {
     newRun: function () {
       Hotpot.state = Hotpot.createNewRun(cfg());
@@ -153,17 +194,37 @@
     },
 
     endTurn: function () {
-      var gameState = state();
-      var config = cfg();
-      gameState.turn += 1;
-      Hotpot.tickPotFreshness(gameState, config);
-      Hotpot.evaluateSynergies("onEndTurn", { state: gameState, config: config });
-      fillHand(gameState, config);
-      Hotpot.log(gameState, "Turn ended. Hand " + gameState.hand.length);
-      return gameState;
+      return runEndTurn(state(), cfg());
     },
 
-    submitPot: function () {
+    capServeSelection: function () {
+      return capServeIds(state(), cfg());
+    },
+
+    toggleServe: function (instanceId) {
+      var gameState = state();
+      var config = cfg();
+      var max = Hotpot.maxSubmitIngredients(config);
+      var ids = pruneServeIds(gameState);
+      var idx = ids.indexOf(instanceId);
+      var msg;
+      if (!Hotpot.findInstance(gameState.pot, instanceId)) {
+        return { ok: false, error: "That ingredient is not in the pot.", selected: false };
+      }
+      if (idx >= 0) {
+        ids.splice(idx, 1);
+        return { ok: true, selected: false, count: ids.length, max: max };
+      }
+      if (ids.length >= max) {
+        msg = "Serve at most " + max + " ingredients";
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg, selected: false, count: ids.length, max: max };
+      }
+      ids.push(instanceId);
+      return { ok: true, selected: true, count: ids.length, max: max };
+    },
+
+    submitPot: function (instanceIds) {
       var gameState = state();
       var config = cfg();
       var snapshot;
@@ -173,26 +234,39 @@
       var i;
       var max = Hotpot.maxSubmitIngredients(config);
       var msg;
+      var selected;
+      var card;
+      if (instanceIds && instanceIds.length) {
+        gameState.serveIds = instanceIds.slice();
+      }
+      capServeIds(gameState, config);
+      selected = selectedPotCards(gameState);
       if (!gameState.pot.length) {
         msg = "Pot is empty — add ingredients before submit.";
         Hotpot.log(gameState, msg);
         return { ok: false, error: msg };
       }
-      if (gameState.pot.length > max) {
-        msg = "Submit at most " + max + " ingredients";
+      if (!selected.length) {
+        msg = "Select ingredients to serve.";
         Hotpot.log(gameState, msg);
         return { ok: false, error: msg };
       }
-      snapshot = Hotpot.makeSnapshot(gameState);
+      if (selected.length > max) {
+        msg = "Serve at most " + max + " ingredients";
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg };
+      }
+      snapshot = Hotpot.makeSnapshot(gameState, selected);
       Hotpot.prepareSnapshot(snapshot, config);
       resultsByModel = Hotpot.compareAll(snapshot, config);
       activeId = (config.scoring && config.scoring.activeModel) || "additive";
       activeResult = resultsByModel[activeId] || resultsByModel.additive;
       gameState.runScore = Hotpot.round(gameState.runScore + activeResult.finalScore);
-      if (!config.table || config.table.submitClearsPot !== false) {
-        for (i = 0; i < gameState.pot.length; i++) gameState.discard.push(gameState.pot[i]);
-        gameState.pot = [];
+      for (i = 0; i < selected.length; i++) {
+        card = Hotpot.takeInstance(gameState.pot, selected[i].instanceId);
+        if (card) gameState.discard.push(card);
       }
+      gameState.serveIds = [];
       if (config.table && config.table.submitKeepsSoup === false) {
         gameState.soup = Hotpot.makeSoup(gameState.soup.baseId, config);
       }
@@ -203,7 +277,8 @@
         resultsByModel: resultsByModel,
         activeResult: activeResult
       };
-      Hotpot.log(gameState, "Submitted pot. " + activeResult.modelId + " = " + activeResult.finalScore + " (run " + gameState.runScore + ")");
+      Hotpot.log(gameState, "Served " + selected.length + ". " + activeResult.modelId + " = " + activeResult.finalScore + " (run " + gameState.runScore + ")");
+      runEndTurn(gameState, config);
       return gameState.lastSubmission;
     },
 
@@ -217,6 +292,7 @@
         for (i = 0; i < gameState.pot.length; i++) gameState.discard.push(gameState.pot[i]);
         gameState.pot = [];
       }
+      pruneServeIds(gameState);
       if (rules.resetProperties !== false) {
         gameState.soup = Hotpot.makeSoup(baseId, config);
       } else {
@@ -249,7 +325,7 @@
       var config = cfg();
       var snapshot;
       if (!preview && gameState.lastSubmission) return gameState.lastSubmission.resultsByModel;
-      snapshot = Hotpot.makeSnapshot(gameState);
+      snapshot = Hotpot.makeSnapshot(gameState, selectedPotCards(gameState));
       Hotpot.prepareSnapshot(snapshot, config);
       return Hotpot.compareAll(snapshot, config);
     },
