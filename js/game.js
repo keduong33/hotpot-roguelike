@@ -7,6 +7,24 @@
     return Hotpot.state;
   }
 
+  Hotpot.maxSubmitIngredients = function (config) {
+    var n = Number(config && config.table && config.table.maxSubmitIngredients);
+    return n >= 1 ? n : 5;
+  };
+
+  Hotpot.handSize = function (config) {
+    var n = Number(config && config.table && config.table.handSize);
+    return n >= 1 ? n : 5;
+  };
+
+  function handFullMessage(config) {
+    return "Hand is full (max " + Hotpot.handSize(config) + ")";
+  }
+
+  function handRoom(gameState, config) {
+    return Math.max(0, Hotpot.handSize(config) - gameState.hand.length);
+  }
+
   function maybeRecycle(gameState, config) {
     if (!config.table || !config.table.recycleDiscard) return;
     if (gameState.deck.length > 0) return;
@@ -19,6 +37,8 @@
   function drawCards(gameState, config, count) {
     var drawn = 0;
     var card;
+    var room = handRoom(gameState, config);
+    if (count > room) count = room;
     while (drawn < count) {
       maybeRecycle(gameState, config);
       if (gameState.deck.length === 0) break;
@@ -30,8 +50,7 @@
   }
 
   function fillHand(gameState, config) {
-    var size = (config.table && config.table.handSize) || 5;
-    var need = size - gameState.hand.length;
+    var need = handRoom(gameState, config);
     if (need > 0) drawCards(gameState, config, need);
   }
 
@@ -73,10 +92,19 @@
     },
 
     draw: function (count) {
-      var n = count != null ? count : ((cfg().table && cfg().table.drawPerTurn) || 1);
-      var drawn = drawCards(state(), cfg(), n);
-      Hotpot.log(state(), "Drew " + drawn);
-      return drawn;
+      var config = cfg();
+      var gameState = state();
+      var n = count != null ? count : ((config.table && config.table.drawPerTurn) || 1);
+      var drawn;
+      var msg;
+      if (handRoom(gameState, config) <= 0) {
+        msg = handFullMessage(config);
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg, drawn: 0 };
+      }
+      drawn = drawCards(gameState, config, n);
+      Hotpot.log(gameState, "Drew " + drawn);
+      return { ok: true, drawn: drawn };
     },
 
     addToPot: function (instanceId) {
@@ -117,7 +145,7 @@
         return false;
       }
       while (gameState.hand.length) gameState.discard.push(gameState.hand.pop());
-      size = (config.table && config.table.handSize) || 5;
+      size = Hotpot.handSize(config);
       drawn = drawCards(gameState, config, size);
       gameState.rerollsLeft -= 1;
       Hotpot.log(gameState, "Rerolled (" + drawn + " drawn, " + gameState.rerollsLeft + " left)");
@@ -138,11 +166,24 @@
     submitPot: function () {
       var gameState = state();
       var config = cfg();
-      var snapshot = Hotpot.makeSnapshot(gameState);
+      var snapshot;
       var resultsByModel;
       var activeId;
       var activeResult;
       var i;
+      var max = Hotpot.maxSubmitIngredients(config);
+      var msg;
+      if (!gameState.pot.length) {
+        msg = "Pot is empty — add ingredients before submit.";
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg };
+      }
+      if (gameState.pot.length > max) {
+        msg = "Submit at most " + max + " ingredients";
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg };
+      }
+      snapshot = Hotpot.makeSnapshot(gameState);
       Hotpot.prepareSnapshot(snapshot, config);
       resultsByModel = Hotpot.compareAll(snapshot, config);
       activeId = (config.scoring && config.scoring.activeModel) || "additive";
@@ -157,6 +198,7 @@
       }
       if (config.table && config.table.advanceCustomer) nextCustomer(gameState, config);
       gameState.lastSubmission = {
+        ok: true,
         snapshot: snapshot,
         resultsByModel: resultsByModel,
         activeResult: activeResult
@@ -214,9 +256,17 @@
 
     addDefToPile: function (defId, pileName) {
       var gameState = state();
+      var config = cfg();
       var pile = gameState[pileName];
-      if (!Hotpot.getIngredientDef(defId, cfg()) || !pile) return null;
-      var inst = Hotpot.createInstance(defId, gameState);
+      var inst;
+      var msg;
+      if (!Hotpot.getIngredientDef(defId, config) || !pile) return null;
+      if (pileName === "hand" && handRoom(gameState, config) <= 0) {
+        msg = handFullMessage(config);
+        Hotpot.log(gameState, msg);
+        return { ok: false, error: msg };
+      }
+      inst = Hotpot.createInstance(defId, gameState);
       pile.push(inst);
       Hotpot.log(gameState, "Spawned " + defId + " into " + pileName);
       return inst;

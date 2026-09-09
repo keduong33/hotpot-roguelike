@@ -11,6 +11,7 @@
       advanceCustomer: false,
       startingSoupBaseId: "spicy_mala",
       startingCustomerId: "spicy_lover",
+      maxSubmitIngredients: 5,
       startingDeckCounts: {
         beef: 3,
         chili: 3,
@@ -30,6 +31,7 @@
     freshnessModifiers: {
       fresh: 3,
       cooked: 5,
+      overcooked: 1,
       spoiled: -3
     },
     changeSoup: {
@@ -45,6 +47,7 @@
         tags: ["meat", "beef", "premium"],
         freshDuration: 2,
         cookedDuration: 3,
+        overcookedDuration: 2,
         effects: [
           { type: "modifySoup", property: "umami", amount: 3 },
           { type: "modifySoup", property: "rich", amount: 2 }
@@ -57,6 +60,7 @@
         tags: ["vegetable", "spicy"],
         freshDuration: 2,
         cookedDuration: 2,
+        overcookedDuration: 2,
         effects: [
           { type: "modifySoup", property: "spicy", amount: 4 }
         ]
@@ -68,6 +72,7 @@
         tags: ["vegetable", "mushroom", "umami"],
         freshDuration: 2,
         cookedDuration: 3,
+        overcookedDuration: 2,
         effects: [
           { type: "modifySoup", property: "umami", amount: 3 }
         ]
@@ -79,6 +84,7 @@
         tags: ["vegetarian", "soy", "protein"],
         freshDuration: 3,
         cookedDuration: 2,
+        overcookedDuration: 2,
         effects: [
           { type: "modifySoup", property: "umami", amount: 1 },
           { type: "modifySoup", property: "salty", amount: 1 }
@@ -91,6 +97,7 @@
         tags: ["noodle"],
         freshDuration: 3,
         cookedDuration: 4,
+        overcookedDuration: 3,
         effects: [
           { type: "modifySoup", property: "salty", amount: 1 }
         ]
@@ -102,6 +109,7 @@
         tags: ["dairy", "creamy"],
         freshDuration: 1,
         cookedDuration: 2,
+        overcookedDuration: 1,
         effects: [
           { type: "modifySoup", property: "creamy", amount: 3 },
           { type: "modifySoup", property: "sweet", amount: 1 }
@@ -140,14 +148,14 @@
         name: "Noodle synergy",
         trigger: "onSubmit",
         when: { anyInPot: { hasTag: "noodle" } },
-        then: { type: "modifyIngredientPoints", unlessTag: "noodle", amount: 1 }
+        then: { type: "modifyPoints", unlessTag: "noodle", amount: 1 }
       },
       {
         id: "meat_veg",
         name: "Meat + vegetable synergy",
         trigger: "onSubmit",
         when: { anyInPot: { hasTag: "meat" } },
-        then: { type: "modifyIngredientPoints", hasTag: "vegetable", amount: 1 }
+        then: { type: "modifyPoints", hasTag: "vegetable", amount: 1 }
       },
       {
         id: "veg_cooking",
@@ -155,12 +163,51 @@
         trigger: "onEndTurn",
         when: { anyInPot: { hasTag: "vegetable" } },
         then: {
-          type: "modifyBonusPoints",
+          type: "modifyPoints",
           hasTag: "vegetable",
           perTurn: 1,
           peakTurns: 3,
-          afterPeak: -1
+          afterPeak: -2
         }
+      },
+      {
+        id: "beef_compliments_chili",
+        name: "Beef compliments Chili",
+        trigger: "onSubmit",
+        compliments: {
+          members: [
+            { defId: "beef" },
+            { defId: "chili" }
+          ],
+          boost: "1"
+        },
+        then: { type: "modifyPoints", amount: 2 }
+      },
+      {
+        id: "milk_compliments_mushroom",
+        name: "Milk compliments Mushroom",
+        trigger: "onSubmit",
+        compliments: {
+          members: [
+            { defId: "milk" },
+            { defId: "mushroom" }
+          ],
+          boost: "1"
+        },
+        then: { type: "modifyPoints", amount: 2 }
+      },
+      {
+        id: "spicy_veg_compliments_milk",
+        name: "Spicy vegetable compliments Milk",
+        trigger: "onSubmit",
+        compliments: {
+          members: [
+            { hasTags: ["vegetable", "spicy"] },
+            { defId: "milk" }
+          ],
+          boost: "1"
+        },
+        then: { type: "modifyPoints", amount: 2 }
       }
     ],
     scoring: {

@@ -8,7 +8,7 @@
       freshness: "fresh",
       turnsInState: 0,
       turnsInPot: 0,
-      bonusPoints: 0
+      pointMods: 0
     };
   };
 

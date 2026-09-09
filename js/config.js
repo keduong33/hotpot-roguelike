@@ -29,6 +29,13 @@
     return list[0] || null;
   };
 
+  Hotpot.parseTags = function (text) {
+    return String(text || "")
+      .split(/[, ]+/)
+      .map(function (t) { return t.trim(); })
+      .filter(Boolean);
+  };
+
   Hotpot.hasTag = function (instanceOrDef, tag, config) {
     var def = instanceOrDef;
     if (instanceOrDef && instanceOrDef.defId) {
@@ -36,6 +43,40 @@
     }
     if (!def || !def.tags) return false;
     return def.tags.indexOf(tag) !== -1;
+  };
+
+  Hotpot.matcherTagList = function (obj) {
+    if (!obj) return [];
+    if (obj.hasTags && obj.hasTags.length) return obj.hasTags.filter(Boolean);
+    if (obj.hasTag) return [obj.hasTag];
+    return [];
+  };
+
+  Hotpot.unlessTagList = function (obj) {
+    if (!obj) return [];
+    if (obj.unlessTags && obj.unlessTags.length) return obj.unlessTags.filter(Boolean);
+    if (obj.unlessTag) return [obj.unlessTag];
+    return [];
+  };
+
+  Hotpot.hasAllTags = function (instanceOrDef, tags, config) {
+    var i;
+    if (!tags || !tags.length) return false;
+    for (i = 0; i < tags.length; i++) {
+      if (!Hotpot.hasTag(instanceOrDef, tags[i], config)) return false;
+    }
+    return true;
+  };
+
+  Hotpot.formatTagList = function (tags) {
+    return (tags || []).join(", ");
+  };
+
+  Hotpot.matcherFromTagText = function (text) {
+    var tags = Hotpot.parseTags(text);
+    if (tags.length > 1) return { hasTags: tags };
+    if (tags.length === 1) return { hasTag: tags[0] };
+    return {};
   };
 
   Hotpot.emptySoupProperties = function (config) {

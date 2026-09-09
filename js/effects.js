@@ -11,11 +11,35 @@
     return amount >= 0 ? "+" + amount : String(amount);
   }
 
-  function instanceMatches(inst, effect, config) {
-    if (effect.hasTag && !Hotpot.hasTag(inst, effect.hasTag, config)) return false;
-    if (effect.unlessTag && Hotpot.hasTag(inst, effect.unlessTag, config)) return false;
+  function inTargetList(inst, ctx) {
+    var list, i;
+    if (!ctx || !ctx.targetInstances) return true;
+    list = ctx.targetInstances;
+    for (i = 0; i < list.length; i++) {
+      if (list[i] === inst || (list[i] && list[i].instanceId === inst.instanceId)) return true;
+    }
+    return false;
+  }
+
+  function instanceMatches(inst, effect, config, ctx) {
+    var tags;
+    var unless;
+    if (!inTargetList(inst, ctx)) return false;
+    tags = Hotpot.matcherTagList(effect);
+    unless = Hotpot.unlessTagList(effect);
+    if (tags.length && !Hotpot.hasAllTags(inst, tags, config)) return false;
+    if (unless.length && Hotpot.hasAllTags(inst, unless, config)) return false;
     return true;
   }
+
+  Hotpot.isModifyPointsType = function (type) {
+    return type === "modifyPoints" || type === "modifyIngredientPoints" || type === "modifyBonusPoints";
+  };
+
+  Hotpot.instancePointMods = function (instance) {
+    if (!instance) return 0;
+    return (instance.pointMods || 0) + (instance.bonusPoints || 0) + (instance.synergyPointMods || 0);
+  };
 
   function modifySoup(effect, ctx) {
     var soup = soupOf(ctx);
@@ -30,13 +54,13 @@
     Hotpot.note(ctx, (def ? def.name : "Effect") + ": " + property + " " + formatDelta(amount));
   }
 
-  function modifyBonusPoints(effect, ctx) {
+  function modifyPoints(effect, ctx) {
     var config = ctx.config;
     var pot = potOf(ctx);
     var i, inst, def, delta;
     for (i = 0; i < pot.length; i++) {
       inst = pot[i];
-      if (!instanceMatches(inst, effect, config)) continue;
+      if (!instanceMatches(inst, effect, config, ctx)) continue;
       if (effect.perTurn != null) {
         delta = inst.turnsInPot <= (effect.peakTurns != null ? effect.peakTurns : Infinity)
           ? effect.perTurn
@@ -44,41 +68,22 @@
       } else {
         delta = effect.amount || 0;
       }
-      inst.bonusPoints = (inst.bonusPoints || 0) + delta;
+      inst.pointMods = (inst.pointMods || 0) + delta;
       def = Hotpot.getIngredientDef(inst.defId, config);
-      Hotpot.note(ctx, (def ? def.name : inst.defId) + " bonus " + formatDelta(delta));
-    }
-  }
-
-  function modifyIngredientPoints(effect, ctx) {
-    var config = ctx.config;
-    var pot = potOf(ctx);
-    var amount = effect.amount || 0;
-    var i, inst, def;
-    for (i = 0; i < pot.length; i++) {
-      inst = pot[i];
-      if (!instanceMatches(inst, effect, config)) continue;
-      inst.synergyPointMods = (inst.synergyPointMods || 0) + amount;
-      def = Hotpot.getIngredientDef(inst.defId, config);
-      Hotpot.note(ctx, (def ? def.name : inst.defId) + " points " + formatDelta(amount));
+      Hotpot.note(ctx, (def ? def.name : inst.defId) + " points " + formatDelta(delta));
     }
   }
 
   Hotpot.applyEffect = function (effect, ctx) {
     if (!effect || !effect.type) return;
-    switch (effect.type) {
-      case "modifySoup":
-        modifySoup(effect, ctx);
-        break;
-      case "modifyBonusPoints":
-        modifyBonusPoints(effect, ctx);
-        break;
-      case "modifyIngredientPoints":
-        modifyIngredientPoints(effect, ctx);
-        break;
-      default:
-        Hotpot.note(ctx, "Unknown effect: " + effect.type);
-        break;
+    if (effect.type === "modifySoup") {
+      modifySoup(effect, ctx);
+      return;
     }
+    if (Hotpot.isModifyPointsType(effect.type)) {
+      modifyPoints(effect, ctx);
+      return;
+    }
+    Hotpot.note(ctx, "Unknown effect: " + effect.type);
   };
 })(window.Hotpot);

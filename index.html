@@ -6,23 +6,29 @@
   <title>Hotpot Roguelike — Mechanics Lab</title>
   <link rel="stylesheet" href="css/main.css">
 </head>
-<body>
+<body data-view="player">
   <header class="top">
     <div>
       <h1>Hotpot Roguelike</h1>
-      <p class="sub">Mechanics laboratory — open this file in a browser. Console: <code>Hotpot.game.submitPot()</code></p>
+      <p class="sub admin-only">Mechanics laboratory — open this file in a browser. Console: <code>Hotpot.game.submitPot()</code></p>
     </div>
-    <dl class="hud">
-      <div><dt>Turn</dt><dd id="hud-turn">1</dd></div>
-      <div><dt>Rerolls</dt><dd id="hud-rerolls">3</dd></div>
-      <div><dt>Run score</dt><dd id="hud-score">0</dd></div>
-    </dl>
+    <div class="header-right">
+      <div class="view-toggle" role="group" aria-label="View">
+        <button type="button" data-action="set-view" data-id="player">Player</button>
+        <button type="button" data-action="set-view" data-id="admin">Admin</button>
+      </div>
+      <dl class="hud">
+        <div><dt>Turn</dt><dd id="hud-turn">1</dd></div>
+        <div><dt>Rerolls</dt><dd id="hud-rerolls">3</dd></div>
+        <div><dt>Run score</dt><dd id="hud-score">0</dd></div>
+      </dl>
+    </div>
   </header>
 
   <main id="app">
     <section>
       <h2>Customer</h2>
-      <label class="inline">Serve
+      <label class="inline admin-only">Serve
         <select id="customer-select"></select>
       </label>
       <div id="customer-body"></div>
@@ -30,7 +36,7 @@
 
     <section>
       <h2>Cooking pot</h2>
-      <p>Soup: <strong id="soup-name">—</strong></p>
+      <p>Soup: <strong id="soup-name">—</strong> · <span id="pot-count">0 / 5 in pot</span></p>
       <div id="soup-stats" class="stats"></div>
       <div id="pot-cards" class="cards"></div>
       <div class="row">
@@ -41,13 +47,14 @@
 
     <section>
       <h2>Hand</h2>
+      <p><span id="hand-count">0 / 5 in hand</span></p>
       <div id="hand-cards" class="cards"></div>
     </section>
 
     <section>
       <h2>Deck</h2>
       <p>Remaining: <strong id="deck-count">0</strong> · Discard: <strong id="discard-count">0</strong></p>
-      <div id="deck-preview" class="chips"></div>
+      <div id="deck-preview" class="chips admin-only"></div>
       <div class="row">
         <button type="button" data-action="draw">Draw</button>
         <button type="button" data-action="reroll">Reroll</button>
@@ -61,25 +68,32 @@
         <button type="button" data-action="submit">Submit pot</button>
         <button type="button" data-action="new-run">New run</button>
       </div>
-      <label class="inline">Active scoring model
+      <p id="submit-status" class="hint"></p>
+      <label class="inline admin-only">Max submit ingredients
+        <input id="max-submit" type="number" min="1" step="1" value="5">
+      </label>
+      <label class="inline admin-only">Max cards in hand
+        <input id="max-hand" type="number" min="1" step="1" value="5">
+      </label>
+      <label class="inline admin-only">Active scoring model
         <select id="model-select"></select>
       </label>
-      <p class="hint">End turn cooks the pot (freshness). Submit does not. Changing soup resets properties and applies a score penalty.</p>
+      <p class="hint">End turn cooks the pot (freshness). Submit scores the pot for this customer (at most the max ingredients). Changing soup resets properties and applies a score penalty.</p>
     </section>
 
     <section>
       <h2>Score</h2>
       <div id="score-body"></div>
-      <button type="button" data-action="compare-all">Compare All Scoring Models</button>
-      <div id="compare-body"></div>
+      <button type="button" class="admin-only" data-action="compare-all">Compare All Scoring Models</button>
+      <div id="compare-body" class="admin-only"></div>
     </section>
 
-    <section class="wide">
+    <section class="wide admin-only">
       <h2>Debug</h2>
       <div id="debug-body"></div>
     </section>
 
-    <section class="wide">
+    <section class="wide admin-only">
       <h2>Ingredient editor</h2>
       <p id="editor-status" class="hint"></p>
       <div class="editor-grid">
@@ -89,6 +103,7 @@
         <label>Tags <input id="ing-tags" type="text" placeholder="meat, vegetable"></label>
         <label>Fresh duration <input id="ing-fresh" type="number" value="2"></label>
         <label>Cooked duration <input id="ing-cooked" type="number" value="3"></label>
+        <label>Overcooked duration <input id="ing-overcooked" type="number" value="2"></label>
       </div>
       <h3>Effects</h3>
       <div id="effect-rows"></div>
@@ -101,7 +116,88 @@
       <div id="catalog-list"></div>
     </section>
 
-    <section class="wide">
+    <section class="wide admin-only">
+      <h2>Synergy editor</h2>
+      <p id="synergy-status" class="hint"></p>
+      <p id="synergy-readout" class="lede"></p>
+      <dl id="synergy-values" class="syn-values">
+        <div><dt>When it fires</dt><dd id="syn-val-trigger">—</dd></div>
+        <div><dt id="syn-dt-a">Members</dt><dd id="syn-val-a">—</dd></div>
+        <div><dt id="syn-dt-b">Who is affected</dt><dd id="syn-val-b">—</dd></div>
+        <div><dt id="syn-dt-boost">Who gets the bonus</dt><dd id="syn-val-boost">—</dd></div>
+        <div><dt>Effect</dt><dd id="syn-val-then">—</dd></div>
+      </dl>
+      <div id="synergy-list"></div>
+      <div class="editor-grid">
+        <input id="syn-id" type="hidden">
+        <label>Name <input id="syn-name" type="text"></label>
+        <label>Rule type
+          <select id="syn-shape">
+            <option value="compliments">Combo / compliments (all members of the combo)</option>
+            <option value="when">If present (tag(s) or ingredient unlocks the effect)</option>
+          </select>
+        </label>
+        <label>When it fires
+          <select id="syn-trigger">
+            <option value="onSubmit">When the pot is submitted</option>
+            <option value="onEndTurn">At the end of the turn</option>
+            <option value="onAddToPot">When something is added to the pot</option>
+          </select>
+        </label>
+      </div>
+      <div id="syn-combo-wrap">
+        <h3>Members of this combo</h3>
+        <p class="hint">Fires when every member of this combo is in the pot (other ingredients are OK).</p>
+        <div id="syn-members"></div>
+        <div class="row">
+          <button type="button" data-action="add-syn-member">Add member</button>
+        </div>
+        <label id="syn-boost-wrap">Who gets the bonus
+          <select id="syn-boost">
+            <option value="all">All members</option>
+          </select>
+        </label>
+      </div>
+      <div id="syn-if-wrap" hidden>
+        <fieldset id="syn-side-a" class="syn-side" data-kind="ingredient">
+          <legend id="syn-legend-a">If the pot contains</legend>
+          <label>Kind
+            <select id="syn-a-kind" class="syn-kind" data-id="a">
+              <option value="ingredient">Ingredient</option>
+              <option value="tag">Tag</option>
+            </select>
+          </label>
+          <label class="syn-ing-field">Ingredient <select id="syn-a-ing"></select></label>
+          <label class="syn-tag-field">Tag <input id="syn-a-tag" type="text" placeholder="vegetable, spicy"></label>
+          <p class="syn-value" id="syn-a-readout"></p>
+        </fieldset>
+        <div id="syn-who-wrap" class="editor-grid">
+          <label>Who gets the effect
+            <select id="syn-who">
+              <option value="everyone">Everyone</option>
+              <option value="only">Only this tag</option>
+              <option value="except">Everyone except this tag</option>
+            </select>
+          </label>
+          <label id="syn-who-tag-wrap">Tag <input id="syn-who-tag" type="text" placeholder="vegetable, spicy"></label>
+        </div>
+      </div>
+      <h3>Effect</h3>
+      <p class="hint" id="syn-effect-hint">Points go to the combo members (or If-present targets). This amount is how many points.</p>
+      <div id="syn-effect-row"></div>
+      <div id="when-fields" class="editor-grid" hidden>
+        <label>Bonus per turn cooked <input id="syn-per-turn" type="number"></label>
+        <label>Turns until overcooked penalty <input id="syn-peak-turns" type="number"></label>
+        <label>Overcooked penalty per turn <input id="syn-after-peak" type="number"></label>
+      </div>
+      <div class="row">
+        <button type="button" data-action="save-syn">Save synergy</button>
+        <button type="button" data-action="clear-syn">New synergy</button>
+        <button type="button" data-action="delete-syn">Delete</button>
+      </div>
+    </section>
+
+    <section class="wide admin-only">
       <h2>Persistence</h2>
       <div class="row">
         <button type="button" data-action="save">Save</button>

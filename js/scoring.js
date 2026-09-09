@@ -55,14 +55,13 @@
     var def = Hotpot.getIngredientDef(instance.defId, config);
     var base = def ? def.basePoints : 0;
     var freshness = (config.freshnessModifiers && config.freshnessModifiers[instance.freshness]) || 0;
-    var bonus = instance.bonusPoints || 0;
-    var synergy = instance.synergyPointMods || 0;
+    var pointMods = Hotpot.instancePointMods(instance);
     return {
       base: base,
       freshness: freshness,
-      bonus: bonus,
-      synergy: synergy,
-      total: base + freshness + bonus + synergy
+      pointMods: pointMods,
+      bonus: pointMods,
+      total: base + freshness + pointMods
     };
   };
 
@@ -72,17 +71,17 @@
 
   Hotpot.sumIngredientParts = function (snapshot, config) {
     var ingredient = 0;
-    var synergy = 0;
+    var pointMods = 0;
     var i, parts;
     for (i = 0; i < snapshot.pot.length; i++) {
       parts = Hotpot.instanceParts(snapshot.pot[i], config);
-      ingredient += parts.base + parts.freshness + parts.bonus;
-      synergy += parts.synergy;
+      ingredient += parts.base + parts.freshness;
+      pointMods += parts.pointMods;
     }
     return {
       ingredient: ingredient,
-      synergy: synergy,
-      combined: ingredient + synergy
+      pointMods: pointMods,
+      combined: ingredient + pointMods
     };
   };
 
@@ -131,10 +130,10 @@
     var soupBonus = soupSum(snapshot) * (cfg.soupBonusPerPoint != null ? cfg.soupBonusPerPoint : 0.5);
     var likeBonus = prefs.likesHit * (cfg.likeHitBonus != null ? cfg.likeHitBonus : 8);
     var dislikePen = prefs.dislikesHit * (cfg.dislikePenalty != null ? cfg.dislikePenalty : 5);
-    var finalScore = parts.ingredient + parts.synergy + likeBonus - dislikePen + soupBonus;
+    var finalScore = parts.combined + likeBonus - dislikePen + soupBonus;
     return result("additive", finalScore, [
       { label: "Ingredient Points", value: Hotpot.round(parts.ingredient) },
-      { label: "Synergy", value: Hotpot.round(parts.synergy) },
+      { label: "Point modifiers", value: Hotpot.round(parts.pointMods) },
       { label: "Like-hit bonuses", value: Hotpot.round(likeBonus) },
       { label: "Dislike penalties", value: Hotpot.round(-dislikePen) },
       { label: "Soup bonus", value: Hotpot.round(soupBonus) }
@@ -149,7 +148,7 @@
     var finalScore = parts.combined * mult;
     return result("pointsMultiplier", finalScore, [
       { label: "Ingredient Points", value: Hotpot.round(parts.ingredient) },
-      { label: "Synergy", value: Hotpot.round(parts.synergy) },
+      { label: "Point modifiers", value: Hotpot.round(parts.pointMods) },
       { label: "Points", value: Hotpot.round(parts.combined) },
       { label: "Multiplier", value: Hotpot.round(mult) }
     ], snapshot);
@@ -162,7 +161,7 @@
     var finalScore = parts.combined * mult;
     return result("soupMultiplier", finalScore, [
       { label: "Ingredient Points", value: Hotpot.round(parts.ingredient) },
-      { label: "Synergy", value: Hotpot.round(parts.synergy) },
+      { label: "Point modifiers", value: Hotpot.round(parts.pointMods) },
       { label: "Multiplier", value: Hotpot.round(mult) }
     ], snapshot);
   }
@@ -184,7 +183,7 @@
     }
     var breakdown = [
       { label: "Ingredient Points", value: Hotpot.round(parts.ingredient) },
-      { label: "Synergy", value: Hotpot.round(parts.synergy) },
+      { label: "Point modifiers", value: Hotpot.round(parts.pointMods) },
       { label: "Weighted soup", value: Hotpot.round(soupScore) }
     ].concat(soupLines);
     return result("customerWeighted", parts.combined + soupScore, breakdown, snapshot);
@@ -198,7 +197,7 @@
     var bonusTotal = 0;
     var breakdown = [
       { label: "Ingredient Points", value: Hotpot.round(parts.ingredient) },
-      { label: "Synergy", value: Hotpot.round(parts.synergy) }
+      { label: "Point modifiers", value: Hotpot.round(parts.pointMods) }
     ];
     var key, bonus;
     for (key in props) {
