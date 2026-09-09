@@ -339,10 +339,10 @@
     if (!then) return "—";
     if (Hotpot.isModifyPointsType(then.type)) {
       if (then.perTurn != null) {
-        text = formatSigned(then.perTurn) + " per turn cooked";
+        text = formatSigned(then.perTurn) + " each cook turn";
         if (then.peakTurns != null) {
           text += ", overcooked after " + then.peakTurns + " turns";
-          if (then.afterPeak != null) text += " (" + formatSigned(then.afterPeak) + " per turn)";
+          if (then.afterPeak != null) text += " (" + formatSigned(then.afterPeak) + " each cook turn)";
         }
       } else {
         text = formatSigned(then.amount != null ? then.amount : 0) + " pts";

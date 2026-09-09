@@ -173,12 +173,20 @@
     return then.amount != null ? Number(then.amount) : 0;
   }
 
-  function cookedWithLine(n, partner) {
-    return signed(n) + " when cooked with " + partner;
+  function whenApplyPhrase(trigger) {
+    if (trigger === "onEndTurn") return "each cook turn";
+    if (trigger === "onAddToPot") return "when added to the pot";
+    return "on submit";
   }
 
-  function affectsLine(n, target) {
-    return "affects " + target + " " + signed(n);
+  function withLine(n, partner, trigger) {
+    if (trigger === "onEndTurn") return signed(n) + " each cook turn with " + partner;
+    if (trigger === "onAddToPot") return signed(n) + " when added to the pot with " + partner;
+    return signed(n) + " on submit with " + partner;
+  }
+
+  function affectsLine(n, target, trigger) {
+    return "affects " + target + " " + signed(n) + " " + whenApplyPhrase(trigger);
   }
 
   Hotpot.synergiesForDef = function (defId, config) {
@@ -188,7 +196,7 @@
     var synergies = [];
     var drawbacks = [];
     var seen = {};
-    var i, syn, then, whenTag, n, members, partners, j, hit, boostIndex, boosted;
+    var i, syn, then, whenTag, n, members, partners, j, hit, boostIndex, boosted, trigger;
 
     function add(bucket, text) {
       if (!text || seen[text]) return;
@@ -200,6 +208,7 @@
     for (i = 0; i < list.length; i++) {
       syn = list[i];
       then = syn.then || {};
+      trigger = syn.trigger || "onSubmit";
       n = thenPointValue(then);
       if (syn.compliments) {
         members = comboMembers(syn.compliments);
@@ -217,9 +226,9 @@
         }
         if (hit && partners.length) {
           if (boosted) {
-            add(n < 0 ? drawbacks : synergies, cookedWithLine(n, partners.join(" and ")));
+            add(n < 0 ? drawbacks : synergies, withLine(n, partners.join(" and "), trigger));
           } else {
-            add(n < 0 ? drawbacks : synergies, affectsLine(n, partnerPhrase(members[boostIndex], cfg)));
+            add(n < 0 ? drawbacks : synergies, affectsLine(n, partnerPhrase(members[boostIndex], cfg), trigger));
           }
         }
         continue;
@@ -227,19 +236,19 @@
       whenTag = syn.when && syn.when.anyInPot;
       if (whenTag && defMatchesMatcher(def, whenTag, cfg)) {
         if (then.perTurn != null && then.perTurn > 0 && (!Hotpot.matcherTagList(then).length || Hotpot.hasAllTags(def, Hotpot.matcherTagList(then), cfg))) {
-          add(synergies, signed(then.perTurn) + " per turn cooked");
+          add(synergies, signed(then.perTurn) + " " + whenApplyPhrase(trigger));
         }
         if (then.afterPeak != null && then.afterPeak < 0) {
-          add(drawbacks, "overcooked " + then.afterPeak + " per turn");
+          add(drawbacks, "overcooked " + then.afterPeak + " " + whenApplyPhrase(trigger));
         }
         if (Hotpot.matcherTagList(then).length && Hotpot.formatTagList(Hotpot.matcherTagList(then)) !== Hotpot.formatTagList(Hotpot.matcherTagList(whenTag))) {
-          add(n < 0 ? drawbacks : synergies, cookedWithLine(n, Hotpot.matcherTagList(then).map(pluralize).join("+")));
+          add(n < 0 ? drawbacks : synergies, withLine(n, Hotpot.matcherTagList(then).map(pluralize).join("+"), trigger));
         } else if (Hotpot.unlessTagList(then).length) {
-          add(n < 0 ? drawbacks : synergies, cookedWithLine(n, "non-" + Hotpot.unlessTagList(then).map(pluralize).join("+")));
+          add(n < 0 ? drawbacks : synergies, withLine(n, "non-" + Hotpot.unlessTagList(then).map(pluralize).join("+"), trigger));
         }
       }
       if (Hotpot.matcherTagList(then).length && Hotpot.formatTagList(Hotpot.matcherTagList(then)) !== Hotpot.formatTagList(Hotpot.matcherTagList(whenTag)) && Hotpot.hasAllTags(def, Hotpot.matcherTagList(then), cfg) && !(whenTag && defMatchesMatcher(def, whenTag, cfg))) {
-        add(n < 0 ? drawbacks : synergies, cookedWithLine(n, Hotpot.matcherTagList(whenTag).length ? Hotpot.matcherTagList(whenTag).map(pluralize).join("+") : Hotpot.matcherTagList(then).map(pluralize).join("+")));
+        add(n < 0 ? drawbacks : synergies, withLine(n, Hotpot.matcherTagList(whenTag).length ? Hotpot.matcherTagList(whenTag).map(pluralize).join("+") : Hotpot.matcherTagList(then).map(pluralize).join("+"), trigger));
       }
     }
     return { synergies: synergies, drawbacks: drawbacks };
